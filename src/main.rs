@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::path::Path;
+use elasticsearch::http::transport::Transport;
 use serde_json::Value;
 
 #[derive(Parser, Debug)]
@@ -23,7 +24,7 @@ async fn drain(
     buffer: &mut Vec<HashMap<String, String>>,
 ) {
     let body:  Vec<BulkOperation<Value>> =  buffer.drain(..).map(|r| -> BulkOperation<Value> {
-         println!("{:?}",r);
+         // println!("{:?}",r);
         BulkOperation::index(serde_json::to_value(r).unwrap()).index("teste").into()
      }).collect();
     let response = client
@@ -36,7 +37,8 @@ async fn drain(
 
 async fn read_file<P: AsRef<Path>>(filename: P, batch_size: usize) -> Result<(), Box<dyn Error>> {
     log::info!("Starting read_fil1e");
-    let client = Elasticsearch::default();
+    let transport = Transport::single_node("http://127.0.0.1:9200")?;
+    let client = Elasticsearch::new(transport);
     let file = File::open(filename)?;
     let mut reader = csv::Reader::from_reader(file);
     let mut record : StringRecord;
@@ -53,7 +55,7 @@ async fn read_file<P: AsRef<Path>>(filename: P, batch_size: usize) -> Result<(),
         if idx > batch_size {
             idx = 0;
             drain(&client,&mut buffer).await;
-            break;
+            // break;
         }
     }
 
