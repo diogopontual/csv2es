@@ -7,5 +7,7 @@ This is an exploratory project designed to familiarize myself with Rust. The pro
 It is indexing the content. Next steps includes:
 
 - [ ] Use the file name as index name;
-- [ ] Enable user to set up the ES URL and security;
+- [ ] Allow user to set up the ES url and security;
 - [ ] Print stats (errors, rows count...);
+- [ ] Parallel processing of multiple files;
+- [ ] Handle _id or id field as document id;
