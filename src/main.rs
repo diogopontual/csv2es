@@ -1,10 +1,12 @@
-use clap::{Parser};
-use csv::{ByteRecord, StringRecord};
-use elasticsearch::{BulkOperation, BulkParts, Elasticsearch};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::path::Path;
+
+use clap::builder::Str;
+use clap::Parser;
+use csv::{ByteRecord, StringRecord};
+use elasticsearch::{BulkOperation, BulkParts, Elasticsearch};
 use elasticsearch::http::transport::Transport;
 use serde_json::Value;
 
@@ -22,31 +24,39 @@ fn record_to_hashmap(headers: &StringRecord, record: &StringRecord) -> HashMap<S
 async fn drain(
     client: &Elasticsearch,
     buffer: &mut Vec<HashMap<String, String>>,
+    index_name: &String,
 ) {
-    let body:  Vec<BulkOperation<Value>> =  buffer.drain(..).map(|r| -> BulkOperation<Value> {
-         // println!("{:?}",r);
-        BulkOperation::index(serde_json::to_value(r).unwrap()).index("teste").into()
-     }).collect();
+    let body: Vec<BulkOperation<Value>> = buffer.drain(..).map(|r| -> BulkOperation<Value> {
+        // println!("{:?}",r);
+        BulkOperation::index(serde_json::to_value(r).unwrap()).index(index_name).into()
+    }).collect();
     let response = client
-         .bulk(BulkParts::Index("test"))
-         .body(body)
-         .send()
-         .await;
-    println!("{:?}",response);
+        .bulk(BulkParts::Index(index_name))
+        .body(body)
+        .send()
+        .await;
+    println!("{:?}", response);
 }
 
-async fn read_file<P: AsRef<Path>>(filename: P, batch_size: usize) -> Result<(), Box<dyn Error>> {
-    log::info!("Starting read_fil1e");
+fn extract_index_name(file_name: &String) -> String {
+    let path = Path::new(file_name);
+    let file_stem = path.file_stem().unwrap().to_str().unwrap();
+    file_stem.to_string()
+}
+
+async fn read_file(filename: &String, batch_size: usize) -> Result<(), Box<dyn Error>> {
+    log::info!("Starting read_file");
     let transport = Transport::single_node("http://127.0.0.1:9200")?;
     let client = Elasticsearch::new(transport);
     let file = File::open(filename)?;
+    let index_name = extract_index_name(filename);
     let mut reader = csv::Reader::from_reader(file);
-    let mut record : StringRecord;
-    let mut buffer: Vec<HashMap<String,String>> = Vec::with_capacity(batch_size);
+    let mut record: StringRecord;
+    let mut buffer: Vec<HashMap<String, String>> = Vec::with_capacity(batch_size);
 
     let mut idx = 0;
 
-    let headers=  reader.headers()?.clone();
+    let headers = reader.headers()?.clone();
 
     for result in reader.records() {
         record = result?;
@@ -54,7 +64,7 @@ async fn read_file<P: AsRef<Path>>(filename: P, batch_size: usize) -> Result<(),
         idx += 1;
         if idx > batch_size {
             idx = 0;
-            drain(&client,&mut buffer).await;
+            drain(&client, &mut buffer, &index_name).await;
             // break;
         }
     }
@@ -66,5 +76,5 @@ async fn main() {
     femme::start();
     let args = Args::parse();
     println!("{:?}", args);
-    let _ = read_file(args.filename, 10).await;
+    let _ = read_file(&args.filename, 10).await;
 }
