@@ -3,9 +3,8 @@ use std::error::Error;
 use std::fs::File;
 use std::path::Path;
 
-use clap::builder::Str;
 use clap::Parser;
-use csv::{ByteRecord, StringRecord};
+use csv::{StringRecord};
 use elasticsearch::{BulkOperation, BulkParts, Elasticsearch};
 use elasticsearch::http::transport::Transport;
 use serde_json::Value;
@@ -77,4 +76,16 @@ async fn main() {
     let args = Args::parse();
     println!("{:?}", args);
     let _ = read_file(&args.filename, 10).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_index_name() {
+        let file_name = "/home/test/data.csv".to_string();
+        let index_name = extract_index_name(&file_name);
+        assert_eq!(index_name, "data");
+    }
 }
